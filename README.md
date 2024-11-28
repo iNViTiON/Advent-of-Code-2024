@@ -4,7 +4,8 @@
 
 <https://adventofcode.com/2024> in [`Rust`](https://www.rust-lang.org/).
 
-I've decided to try Rust, but I won't finish reading its [book](https://doc.rust-lang.org/book/) before AoC2024 and I haven't had a chance to try anything except just reading that book.
+I've decided to try Rust, but I won't finish reading its [book](https://doc.rust-lang.org/book/) before AoC2024 and I haven't had a chance to try anything except just reading that book.  
+—This year, I'm not focusing on achieving faster times and might not complete most days. Last year, I was traveling, and this year, life has been a bit complicated and extremely busy, keeping me occupied seven days a week.
 
 ## How to execute
 
