@@ -18,3 +18,9 @@ cargo run {day} {…params}
 ```
 
 Replace `{day}` with the specific day's number (e.g., `1`) and `…params` will vary depending on the day. Simply run the command, and it will provide more details about the required parameters.
+
+Verifying that all challenges produce the correct answers by running
+
+```sh
+cargo test
+```
