@@ -40,11 +40,10 @@ fn process_first(config: &Config) -> u32 {
   input_right.sort();
 
   let left_iter = input_left.iter();
-  let mut right_iter = input_right.iter();
+  let right_iter = input_right.iter();
 
   let mut distances: Vec<u32> = Vec::new();
-  for left in left_iter {
-    let right = right_iter.next().unwrap();
+  for (left, right) in left_iter.zip(right_iter) {
     let distance = (*right as i32) - (*left as i32);
     distances.push(distance.abs() as u32);
   }
