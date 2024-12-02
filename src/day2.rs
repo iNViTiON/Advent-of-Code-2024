@@ -45,15 +45,18 @@ fn check_safe(last: u8, level: u8, increasing: Option<bool>) -> bool {
     upper >= lower && upper - lower <= 3
 }
 
-fn is_report_safe(report: impl Iterator<Item = u8>) -> bool {
-    let mut last_value: Option<u8> = None;
-    let mut increasing: Option<bool> = None;
+fn is_report_safe(
+    report: impl Iterator<Item = u8>,
+    mut last_value: Option<u8>,
+    mut increasing: Option<bool>,
+) -> (bool, u8) {
+    let mut checking_level: u8 = 0;
     for level in report {
         match last_value {
             None => last_value = Some(level),
             Some(last) => {
                 if !check_safe(last, level, increasing) {
-                    return false;
+                    return (false, checking_level);
                 }
                 last_value = Some(level);
                 match increasing {
@@ -62,14 +65,57 @@ fn is_report_safe(report: impl Iterator<Item = u8>) -> bool {
                 }
             }
         }
+        checking_level += 1;
     }
-    true
+    (true, 0)
 }
 
-fn process_first(config: &Config) -> usize {
-    let raw_dataset = read_input_file(&config.in_file);
+fn process_first(raw_dataset: &str) -> usize {
     input_to_reports(&raw_dataset)
-        .map(|report| is_report_safe(report))
+        .map(|report| is_report_safe(report, None, None))
+        .filter(|&(safe, _)| safe)
+        .count()
+}
+
+fn is_report_safe_with_tolerance(report: impl Iterator<Item = u8>) -> bool {
+    let report_vec: Vec<u8> = report.collect::<Vec<u8>>();
+    let (safe, unsafe_level) = is_report_safe(report_vec.iter().cloned(), None, None);
+    if safe {
+        return true;
+    }
+    if unsafe_level > 1 {
+        let report_vec_remove_previous = [
+            &report_vec[..unsafe_level as usize - 2],
+            &report_vec[unsafe_level as usize - 1..],
+        ]
+        .concat();
+        let (safe, _) = is_report_safe(report_vec_remove_previous.iter().cloned(), None, None);
+        if safe {
+            return true;
+        }
+    }
+    {
+        let report_vec_remove_last = [
+            &report_vec[..unsafe_level as usize - 1],
+            &report_vec[unsafe_level as usize..],
+        ]
+        .concat();
+        let (safe, _) = is_report_safe(report_vec_remove_last.iter().cloned(), None, None);
+        if safe {
+            return true;
+        }
+    }
+    let report_vec_remove_current = [
+        &report_vec[..unsafe_level as usize],
+        &report_vec[unsafe_level as usize + 1..],
+    ]
+    .concat();
+    is_report_safe(report_vec_remove_current.iter().cloned(), None, None).0
+}
+
+fn process_second(raw_dataset: &str) -> usize {
+    input_to_reports(&raw_dataset)
+        .map(|report| is_report_safe_with_tolerance(report))
         .filter(|&safe| safe)
         .count()
 }
@@ -80,9 +126,16 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         std::process::exit(1);
     });
     println!("Input file: {}", config.in_file);
+    let raw_dataset = read_input_file(&config.in_file);
 
-    let safe_count = process_first(&config);
-    println!("Saft report count: {}", safe_count);
+    let safe_count = process_first(&raw_dataset);
+    println!("Safe report count: {}", safe_count);
+
+    let safe_with_tolerance_count = process_second(&raw_dataset);
+    println!(
+        "Safe report with tolerance count: {}",
+        safe_with_tolerance_count
+    );
 }
 
 #[cfg(test)]
@@ -94,7 +147,8 @@ mod tests {
         let config = Config {
             in_file: "input/day2_ex.txt".to_string(),
         };
-        let safe_count = process_first(&config);
+        let raw_dataset = read_input_file(&config.in_file);
+        let safe_count = process_first(&raw_dataset);
         assert_eq!(safe_count, 2);
     }
 
@@ -103,7 +157,28 @@ mod tests {
         let config = Config {
             in_file: "input/day2.txt".to_string(),
         };
-        let safe_count = process_first(&config);
+        let raw_dataset = read_input_file(&config.in_file);
+        let safe_count = process_first(&raw_dataset);
         assert_eq!(safe_count, 326);
+    }
+
+    #[test]
+    fn test_process_second_ex() {
+        let config = Config {
+            in_file: "input/day2_ex.txt".to_string(),
+        };
+        let raw_dataset = read_input_file(&config.in_file);
+        let safe_with_tolerance_count = process_second(&raw_dataset);
+        assert_eq!(safe_with_tolerance_count, 4);
+    }
+
+    #[test]
+    fn test_process_second() {
+        let config = Config {
+            in_file: "input/day2.txt".to_string(),
+        };
+        let raw_dataset = read_input_file(&config.in_file);
+        let safe_with_tolerance_count = process_second(&raw_dataset);
+        assert_eq!(safe_with_tolerance_count, 381);
     }
 }
