@@ -91,20 +91,38 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_process_first() {
+  fn test_process_first_ex() {
     let config = Config {
       in_file: "input/day1_ex.txt".to_string(),
     };
     let distance = process_first(&config);
     assert_eq!(distance, 11);
   }
+
+  #[test]
+  fn test_process_first() {
+    let config = Config {
+      in_file: "input/day1.txt".to_string(),
+    };
+    let distance = process_first(&config);
+    assert_eq!(distance, 1258579);
+  }
   
   #[test]
-  fn test_process_second() {
+  fn test_process_second_ex() {
     let config = Config {
       in_file: "input/day1_ex.txt".to_string(),
     };
     let similarity = process_second(&config);
     assert_eq!(similarity, 31);
+  }
+
+  #[test]
+  fn test_process_second() {
+    let config = Config {
+      in_file: "input/day1.txt".to_string(),
+    };
+    let similarity = process_second(&config);
+    assert_eq!(similarity, 23981443);
   }
 }
