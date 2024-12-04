@@ -1,4 +1,4 @@
-use regex::{Captures, Match, Regex};
+use regex_lite::{Captures, Match, Regex};
 use std::fs;
 
 struct Config {
