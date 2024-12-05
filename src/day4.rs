@@ -1,5 +1,6 @@
 use regex_lite::{RegexBuilder, Regex};
 use std::fs;
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -42,7 +43,7 @@ fn process_first(raw_dataset: &str) -> usize {
         regexs.push(get_multiline_regex(&offset));
         regexs.push(get_multiline_reverse_regex(&offset));
     }
-    let total_count = Arc::new(Mutex::new(0));
+    let total_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     for regex_str in regexs {
         let total_count = Arc::clone(&total_count);
@@ -62,16 +63,14 @@ fn process_first(raw_dataset: &str) -> usize {
                     None => break,
                 }
             }
-            let mut all_count = total_count.lock().unwrap();
-            *all_count += count;
+            total_count.fetch_add(count, std::sync::atomic::Ordering::Relaxed)
         });
         handles.push(handle);
     }
     for handle in handles {
         handle.join().unwrap();
     }
-    let total_count = *total_count.lock().unwrap();
-    total_count
+    total_count.load(std::sync::atomic::Ordering::Acquire)
 }
 
 fn process_second(raw_dataset: &str) -> usize {
@@ -82,7 +81,7 @@ fn process_second(raw_dataset: &str) -> usize {
     regexs.push(format!("M.M(.|\n){{{}}}A(.|\n){{{}}}S.S", distance, distance));
     regexs.push(format!("S.M(.|\n){{{}}}A(.|\n){{{}}}S.M", distance, distance));
     regexs.push(format!("S.S(.|\n){{{}}}A(.|\n){{{}}}M.M", distance, distance));
-    let total_count = Arc::new(Mutex::new(0));
+    let total_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     for regex_str in regexs {
         let total_count = Arc::clone(&total_count);
@@ -101,16 +100,14 @@ fn process_second(raw_dataset: &str) -> usize {
                     None => break,
                 }
             }
-            let mut all_count = total_count.lock().unwrap();
-            *all_count += count;
+            total_count.fetch_add(count, std::sync::atomic::Ordering::Relaxed)
         });
         handles.push(handle);
     }
     for handle in handles {
         handle.join().unwrap();
     }
-    let total_count = *total_count.lock().unwrap();
-    total_count
+    total_count.load(std::sync::atomic::Ordering::Acquire)
 }
 
 pub fn run(mut args: impl Iterator<Item = String>) {
