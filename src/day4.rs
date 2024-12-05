@@ -1,4 +1,4 @@
-use regex_lite::RegexBuilder;
+use regex_lite::{RegexBuilder, Regex};
 use std::fs;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -25,12 +25,12 @@ fn read_input_file(file_path: &str) -> String {
     })
 }
 
-fn get_multiline_regex(distant: &usize) -> String {
-    format!("X.{{{}}}M.{{{}}}A.{{{}}}S", distant, distant, distant)
+fn get_multiline_regex(distance: &usize) -> String {
+    format!("X.{{{}}}M.{{{}}}A.{{{}}}S", distance, distance, distance)
 }
 
-fn get_multiline_reverse_regex(distant: &usize) -> String {
-    format!("S.{{{}}}A.{{{}}}M.{{{}}}X", distant, distant, distant)
+fn get_multiline_reverse_regex(distance: &usize) -> String {
+    format!("S.{{{}}}A.{{{}}}M.{{{}}}X", distance, distance, distance)
 }
 
 fn process_first(raw_dataset: &str) -> usize {
@@ -74,6 +74,45 @@ fn process_first(raw_dataset: &str) -> usize {
     total_count
 }
 
+fn process_second(raw_dataset: &str) -> usize {
+    let line_length = raw_dataset.lines().next().unwrap().len();
+    let mut regexs = Vec::new();
+    let distance = line_length - 1;
+    regexs.push(format!("M.S(.|\n){{{}}}A(.|\n){{{}}}M.S", distance, distance));
+    regexs.push(format!("M.M(.|\n){{{}}}A(.|\n){{{}}}S.S", distance, distance));
+    regexs.push(format!("S.M(.|\n){{{}}}A(.|\n){{{}}}S.M", distance, distance));
+    regexs.push(format!("S.S(.|\n){{{}}}A(.|\n){{{}}}M.M", distance, distance));
+    let total_count = Arc::new(Mutex::new(0));
+    let mut handles = Vec::new();
+    for regex_str in regexs {
+        let total_count = Arc::clone(&total_count);
+        let regex_str = regex_str.clone();
+        let raw_dataset = raw_dataset.to_string();
+        let handle = thread::spawn(move || {
+            let regex = Regex::new(&regex_str).unwrap();
+            let mut count = 0;
+            let mut start_offset = 0;
+            loop {
+                match regex.find_at(&raw_dataset, start_offset) {
+                    Some(found) => {
+                        count += 1;
+                        start_offset = found.start() + 1;
+                    }
+                    None => break,
+                }
+            }
+            let mut all_count = total_count.lock().unwrap();
+            *all_count += count;
+        });
+        handles.push(handle);
+    }
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    let total_count = *total_count.lock().unwrap();
+    total_count
+}
+
 pub fn run(mut args: impl Iterator<Item = String>) {
     let config = Config::new(&mut args).unwrap_or_else(|err| {
         eprintln!("Problem parsing arguments: {}", err);
@@ -89,6 +128,9 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     
     let xmas_count = process_first(&raw_dataset);
     println!("XMAS count: {}", xmas_count);
+
+    let x_mas_count = process_second(&raw_dataset);
+    println!("X-MAS count: {}", x_mas_count);
 }
 
 #[cfg(test)]
@@ -105,5 +147,11 @@ mod tests {
     fn test_process_first() {
         let raw_dataset = read_input_file("input/day4.txt");
         assert_eq!(process_first(&raw_dataset), 2571);
+    }
+
+    #[test]
+    fn test_process_second_ex() {
+        let raw_dataset = read_input_file("input/day4_ex.txt");
+        assert_eq!(process_second(&raw_dataset), 9);
     }
 }
