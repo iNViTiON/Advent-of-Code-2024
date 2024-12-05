@@ -154,4 +154,10 @@ mod tests {
         let raw_dataset = read_input_file("input/day4_ex.txt");
         assert_eq!(process_second(&raw_dataset), 9);
     }
+
+    #[test]
+    fn test_process_second() {
+        let raw_dataset = read_input_file("input/day4.txt");
+        assert_eq!(process_second(&raw_dataset), 1992);
+    }
 }
