@@ -1,7 +1,7 @@
-use regex_lite::{RegexBuilder, Regex};
+use regex_lite::{Regex, RegexBuilder};
 use std::fs;
 use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::thread;
 
 struct Config {
@@ -77,10 +77,22 @@ fn process_second(raw_dataset: &str) -> usize {
     let line_length = raw_dataset.lines().next().unwrap().len();
     let mut regexs = Vec::new();
     let distance = line_length - 1;
-    regexs.push(format!("M.S(.|\n){{{}}}A(.|\n){{{}}}M.S", distance, distance));
-    regexs.push(format!("M.M(.|\n){{{}}}A(.|\n){{{}}}S.S", distance, distance));
-    regexs.push(format!("S.M(.|\n){{{}}}A(.|\n){{{}}}S.M", distance, distance));
-    regexs.push(format!("S.S(.|\n){{{}}}A(.|\n){{{}}}M.M", distance, distance));
+    regexs.push(format!(
+        "M.S(.|\n){{{}}}A(.|\n){{{}}}M.S",
+        distance, distance
+    ));
+    regexs.push(format!(
+        "M.M(.|\n){{{}}}A(.|\n){{{}}}S.S",
+        distance, distance
+    ));
+    regexs.push(format!(
+        "S.M(.|\n){{{}}}A(.|\n){{{}}}S.M",
+        distance, distance
+    ));
+    regexs.push(format!(
+        "S.S(.|\n){{{}}}A(.|\n){{{}}}M.M",
+        distance, distance
+    ));
     let total_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     for regex_str in regexs {
@@ -122,7 +134,7 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     println!("WARNING! This is really slow, you can make it 10× faster by running with --release");
     println!("e.g. `cargo run --release 4 input/day4.txt`");
     println!("e.g. `cargo run -r 4 input/day4.txt`");
-    
+
     let xmas_count = process_first(&raw_dataset);
     println!("XMAS count: {}", xmas_count);
 
