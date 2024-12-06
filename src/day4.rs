@@ -1,7 +1,7 @@
 use regex_lite::{Regex, RegexBuilder};
 use std::fs;
 use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc};
+use std::sync::Arc;
 use std::thread;
 
 struct Config {
