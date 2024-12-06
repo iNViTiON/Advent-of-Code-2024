@@ -197,8 +197,8 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     let raw_dataset = read_input_file(&config.in_file);
 
     println!("WARNING! This is really slow, you can make it 10× faster by running with --release");
-    println!("e.g. `cargo run --release 4 input/day4.txt`");
-    println!("e.g. `cargo run -r 4 input/day4.txt`");
+    println!("e.g. `cargo run --release 5 input/day5.txt`");
+    println!("e.g. `cargo run -r 5 input/day5.txt`");
 
     let input = Input::new(&raw_dataset);
 
