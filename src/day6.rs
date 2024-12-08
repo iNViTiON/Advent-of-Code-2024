@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 
 struct Config {
@@ -23,7 +23,7 @@ fn read_input_file(file_path: &str) -> String {
     })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 enum Direction {
     North,
     South,
@@ -110,6 +110,24 @@ impl ObstacleHashMap {
         }
         ObstacleHashMap { rows, cols }
     }
+
+    fn add_obstacle(&mut self, row: u8, col: u8) {
+        let obstacle_row = self.rows.entry(row).or_insert_with(Vec::new);
+        obstacle_row.push(col);
+        obstacle_row.sort();
+        let obstacle_col = self.cols.entry(col).or_insert_with(Vec::new);
+        obstacle_col.push(row);
+        obstacle_col.sort();
+    }
+
+    fn remove_obstacle(&mut self, row: u8, col: u8) {
+        let obstacle_row = self.rows.get_mut(&row).unwrap();
+        let row_i = obstacle_row.iter().position(|&c| c == col).unwrap();
+        obstacle_row.remove(row_i);
+        let obstacle_col = self.cols.get_mut(&col).unwrap();
+        let col_i = obstacle_col.iter().position(|&r| r == row).unwrap();
+        obstacle_col.remove(col_i);
+    }
 }
 
 struct MapSize {
@@ -130,6 +148,7 @@ struct Path(u8, u8);
 struct MovementRecords {
     rows: HashMap<u8, Vec<Path>>,
     cols: HashMap<u8, Vec<Path>>,
+    looped: bool
 }
 
 fn get_movement_records(
@@ -140,7 +159,9 @@ fn get_movement_records(
     let mut rows = HashMap::new();
     let mut cols = HashMap::new();
     let mut out_of_map = false;
-    loop {
+    let mut turning_points: HashSet<(u8, u8, Direction)> = HashSet::new();
+    let mut looped = false;
+    while !out_of_map && !looped {
         match guard.facing {
             Direction::North => {
                 let new_row = obstacles
@@ -203,13 +224,11 @@ fn get_movement_records(
                 guard.col = new_col;
             }
         }
-
-        if out_of_map {
-            break;
-        }
+        looped = turning_points.contains(&(guard.row, guard.col, guard.facing.clone()));
+        turning_points.insert((guard.row, guard.col, guard.facing.clone()));
         guard.turn_right();
     }
-    MovementRecords { rows, cols }
+    MovementRecords { rows, cols, looped }
 }
 
 fn simplify_vec(map: &mut HashMap<u8, Vec<Path>>) {
@@ -267,15 +286,42 @@ fn count_visited(movement_records: &MovementRecords) -> usize {
         })
 }
 
-fn process_first(raw_dataset: &str) -> usize {
-    let map_size = MapSize::from_maps(&raw_dataset);
-    let obstacles = ObstacleHashMap::from_maps(&raw_dataset);
-    let mut guard = GuardPosition::from_maps(&raw_dataset).unwrap();
-    let mut movement_records = get_movement_records(&map_size, &obstacles, &mut guard);
-    simplify_visited(&mut movement_records);
-    let crossed = count_crossed(&movement_records);
-    let visited = count_visited(&movement_records);
+fn process_first(movement_records: &MovementRecords) -> usize {
+    let crossed = count_crossed(movement_records);
+    let visited = count_visited(movement_records);
     visited - crossed
+}
+
+fn process_second(map_size: &MapSize, movement_records: &MovementRecords, obstacles: &mut ObstacleHashMap, guard_original: &GuardPosition) -> usize {
+    let mut visited: HashSet<(u8, u8)> = HashSet::new();
+    let mut can_cause_loop: usize = 0;
+    for (&row_i, paths_row) in movement_records.rows.iter() {
+        for path_row in paths_row {
+            let lower_col = path_row.0.min(path_row.1);
+            let upper_col = path_row.0.max(path_row.1);
+            for col_i in lower_col..=upper_col {
+                visited.insert((row_i, col_i));
+            }
+        }
+    }
+    for (&col_i, paths_col) in movement_records.cols.iter() {
+        for path_col in paths_col {
+            let lower_row = path_col.0.min(path_col.1);
+            let upper_row = path_col.0.max(path_col.1);
+            for row_i in lower_row..=upper_row {
+                visited.insert((row_i, col_i));
+            }
+        }
+    }
+    for (row, col) in visited {
+        obstacles.add_obstacle(row, col);
+        let mut guard = guard_original.clone();
+        if get_movement_records(map_size, obstacles, &mut guard).looped {
+            can_cause_loop += 1;
+        }
+        obstacles.remove_obstacle(row, col);
+    }
+    can_cause_loop
 }
 
 pub fn run(mut args: impl Iterator<Item = String>) {
@@ -286,9 +332,19 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     println!("Input file: {}", config.in_file);
 
     let raw_dataset = read_input_file(&config.in_file);
+    let map_size = MapSize::from_maps(&raw_dataset);
+    let obstacles = ObstacleHashMap::from_maps(&raw_dataset);
+    let guard_original = GuardPosition::from_maps(&raw_dataset).unwrap();
+    let mut guard = guard_original.clone();
+    let mut movement_records = get_movement_records(&map_size, &obstacles, &mut guard);
+    simplify_visited(&mut movement_records);
 
-    let distinct_visit = process_first(&raw_dataset);
+    let distinct_visit = process_first(&movement_records);
     println!("Distinct visit: {}", distinct_visit);
+
+    let mut obstacles = obstacles;
+    let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
+    println!("Can cause loop: {}", can_cause_loop);
 }
 
 #[cfg(test)]
