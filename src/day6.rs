@@ -23,6 +23,7 @@ fn read_input_file(file_path: &str) -> String {
     })
 }
 
+#[derive(Clone)]
 enum Direction {
     North,
     South,
@@ -51,6 +52,7 @@ impl Direction {
     }
 }
 
+#[derive(Clone)]
 struct GuardPosition {
     facing: Direction,
     row: u8,
@@ -137,75 +139,72 @@ fn get_movement_records(
 ) -> MovementRecords {
     let mut rows = HashMap::new();
     let mut cols = HashMap::new();
+    let mut out_of_map = false;
     loop {
         match guard.facing {
             Direction::North => {
-                let current_col = obstacles.cols.get(&guard.col);
-                if let Some(current_col) = current_col {
-                    let obstacle = current_col.iter().rfind(|row_i| **row_i < guard.row);
-                    let new_row = if let Some(obstacle) = obstacle {
-                        *obstacle + 1
-                    } else {
+                let new_row = obstacles
+                    .cols
+                    .get(&guard.col)
+                    .and_then(|current_col| current_col.iter().rfind(|row_i| **row_i < guard.row))
+                    .map(|obstacle| *obstacle + 1)
+                    .unwrap_or_else(|| {
+                        out_of_map = true;
                         0
-                    };
-                    cols.entry(guard.col)
-                        .or_insert_with(Vec::new)
-                        .push(Path(new_row, guard.row));
-                    guard.row = new_row;
-                }
-            },
+                    });
+                cols.entry(guard.col)
+                    .or_insert_with(Vec::new)
+                    .push(Path(new_row, guard.row));
+                guard.row = new_row;
+            }
             Direction::East => {
-                let current_row = obstacles.rows.get(&guard.row);
-                if let Some(current_row) = current_row {
-                    let obstacle = current_row.iter().find(|col_i| **col_i > guard.col);
-                    let new_col = if let Some(obstacle) = obstacle {
-                        *obstacle - 1
-                    } else {
+                let new_col = obstacles
+                    .rows
+                    .get(&guard.row)
+                    .and_then(|current_row| current_row.iter().find(|col_i| **col_i > guard.col))
+                    .map(|obstacle| *obstacle - 1)
+                    .unwrap_or_else(|| {
+                        out_of_map = true;
                         0
-                    };
-                    rows.entry(guard.row)
-                        .or_insert_with(Vec::new)
-                        .push(Path(guard.col, new_col));
-                    guard.col = new_col;
-                }
-            },
+                    });
+                rows.entry(guard.row)
+                    .or_insert_with(Vec::new)
+                    .push(Path(guard.col, new_col));
+                guard.col = new_col;
+            }
             Direction::South => {
-                let current_col = obstacles.cols.get(&guard.col);
-                if let Some(current_col) = current_col {
-                    let obstacle = current_col.iter().find(|row_i| **row_i > guard.row);
-                    let new_row = if let Some(obstacle) = obstacle {
-                        *obstacle - 1
-                    } else {
+                let new_row = obstacles
+                    .cols
+                    .get(&guard.col)
+                    .and_then(|current_col| current_col.iter().find(|row_i| **row_i > guard.row))
+                    .map(|obstacle| *obstacle - 1)
+                    .unwrap_or_else(|| {
+                        out_of_map = true;
                         map_size.height - 1
-                    };
-                    cols.entry(guard.col)
-                        .or_insert_with(Vec::new)
-                        .push(Path(guard.row, new_row));
-                    guard.row = new_row;
-                }
-            },
+                    });
+                cols.entry(guard.col)
+                    .or_insert_with(Vec::new)
+                    .push(Path(guard.row, new_row));
+                guard.row = new_row;
+            }
             Direction::West => {
-                let current_row = obstacles.rows.get(&guard.row);
-                if let Some(current_row) = current_row {
-                    let obstacle = current_row.iter().rfind(|col_i| **col_i < guard.col);
-                    let new_col = if let Some(obstacle) = obstacle {
-                        *obstacle + 1
-                    } else {
+                let new_col = obstacles
+                    .rows
+                    .get(&guard.row)
+                    .and_then(|current_row| current_row.iter().rfind(|col_i| **col_i < guard.col))
+                    .map(|obstacle| *obstacle + 1)
+                    .unwrap_or_else(|| {
+                        out_of_map = true;
                         map_size.width - 1
-                    };
-                    rows.entry(guard.row)
-                        .or_insert_with(Vec::new)
-                        .push(Path(new_col, guard.col));
-                    guard.col = new_col;
-                }
-            },
+                    });
+                rows.entry(guard.row)
+                    .or_insert_with(Vec::new)
+                    .push(Path(new_col, guard.col));
+                guard.col = new_col;
+            }
         }
 
-        if guard.row == 0
-            || guard.row == map_size.width - 1
-            || guard.col == 0
-            || guard.col == map_size.height - 1
-        {
+        if out_of_map {
             break;
         }
         guard.turn_right();
@@ -215,31 +214,19 @@ fn get_movement_records(
 
 fn simplify_vec(map: &mut HashMap<u8, Vec<Path>>) {
     for (_, paths) in map.iter_mut() {
-        paths.sort_by(|a, b| match a.0.cmp(&b.0) {
-            std::cmp::Ordering::Equal => a.1.cmp(&b.1),
-            other => other,
-        });
+        paths.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
         let mut i = 0;
-        loop {
-            if i >= paths.len() {
-                break;
+        while i < paths.len() - 1 {
+            let a = &paths[i];
+            let b = &paths[i + 1];
+            if a.1 >= b.0 {
+                paths.get_mut(i).unwrap().1 = b.1;
+                paths.remove(i + 1);
+            } else {
+                i += 1;
             }
-            let a = paths.get(i);
-            if let Some(a) = a {
-                let b = paths.get(i + 1);
-                if let Some(b) = b {
-                    if a.1 >= b.0 {
-                        paths.get_mut(i).unwrap().1 = b.1;
-                        paths.remove(i + 1);
-                    } else {
-                        i += 1;
-                    }
-                } else {
-                    break;
-                }
-            } else { break }
         }
-    }
+     }
 }
 
 fn simplify_visited(movement_records: &mut MovementRecords) {
@@ -253,8 +240,10 @@ fn count_crossed(movement_records: &MovementRecords) -> usize {
         for path_row in paths_row {
             for (col_i, paths_col) in movement_records.cols.iter() {
                 for path_col in paths_col {
-                    if path_row.0 <= *col_i && *col_i <= path_row.1
-                        && path_col.0 <= *row_i && *row_i <= path_col.1
+                    if path_row.0 <= *col_i
+                        && *col_i <= path_row.1
+                        && path_col.0 <= *row_i
+                        && *row_i <= path_col.1
                     {
                         count += 1;
                     }
@@ -266,11 +255,16 @@ fn count_crossed(movement_records: &MovementRecords) -> usize {
 }
 
 fn count_visited(movement_records: &MovementRecords) -> usize {
-    movement_records.rows.iter().chain(movement_records.cols.iter()).fold(0, |acc_paths, (_, paths)| {
-        acc_paths + paths.iter().fold(0, |acc_path, path| {
-            acc_path + (path.1 - path.0 + 1) as usize
+    movement_records
+        .rows
+        .iter()
+        .chain(movement_records.cols.iter())
+        .fold(0, |acc_paths, (_, paths)| {
+            acc_paths
+                + paths.iter().fold(0, |acc_path, path| {
+                    acc_path + (path.1 - path.0 + 1) as usize
+                })
         })
-    })
 }
 
 fn process_first(raw_dataset: &str) -> usize {
@@ -295,9 +289,6 @@ pub fn run(mut args: impl Iterator<Item = String>) {
 
     let distinct_visit = process_first(&raw_dataset);
     println!("Distinct visit: {}", distinct_visit);
-
-    // let x_mas_count = process_second(&raw_dataset);
-    // println!("X-MAS count: {}", x_mas_count);
 }
 
 #[cfg(test)]
