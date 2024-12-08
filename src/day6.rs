@@ -351,29 +351,35 @@ pub fn run(mut args: impl Iterator<Item = String>) {
 mod tests {
     use super::*;
 
-    // let's do document test starting today
+    #[test]
+    fn test_process_ex() {
+        let raw_dataset = read_input_file("input/day6_ex.txt");
+        let map_size = MapSize::from_maps(&raw_dataset);
+        let obstacles = ObstacleHashMap::from_maps(&raw_dataset);
+        let guard_original = GuardPosition::from_maps(&raw_dataset).unwrap();
+        let mut guard = guard_original.clone();
+        let mut movement_records = get_movement_records(&map_size, &obstacles, &mut guard);
+        simplify_visited(&mut movement_records);
+        let distinct_visit = process_first(&movement_records);
+        assert_eq!(distinct_visit, 41);
+        let mut obstacles = obstacles;
+        let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
+        assert_eq!(can_cause_loop, 6);
+    }
 
-    // #[test]
-    // fn test_process_first_ex() {
-    //     let raw_dataset = read_input_file("input/day4_ex.txt");
-    //     assert_eq!(process_first(&raw_dataset), 18);
-    // }
-
-    // #[test]
-    // fn test_process_first() {
-    //     let raw_dataset = read_input_file("input/day4.txt");
-    //     assert_eq!(process_first(&raw_dataset), 2571);
-    // }
-
-    // #[test]
-    // fn test_process_second_ex() {
-    //     let raw_dataset = read_input_file("input/day4_ex.txt");
-    //     assert_eq!(process_second(&raw_dataset), 9);
-    // }
-
-    // #[test]
-    // fn test_process_second() {
-    //     let raw_dataset = read_input_file("input/day4.txt");
-    //     assert_eq!(process_second(&raw_dataset), 1992);
-    // }
+    #[test]
+    fn test_process() {
+        let raw_dataset = read_input_file("input/day6.txt");
+        let map_size = MapSize::from_maps(&raw_dataset);
+        let obstacles = ObstacleHashMap::from_maps(&raw_dataset);
+        let guard_original = GuardPosition::from_maps(&raw_dataset).unwrap();
+        let mut guard = guard_original.clone();
+        let mut movement_records = get_movement_records(&map_size, &obstacles, &mut guard);
+        simplify_visited(&mut movement_records);
+        let distinct_visit = process_first(&movement_records);
+        assert_eq!(distinct_visit, 5404);
+        let mut obstacles = obstacles;
+        let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
+        assert_eq!(can_cause_loop, 1984);
+    }
 }
