@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::fs;
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
+use std::{fs, thread};
 
 struct Config {
     in_file: String,
@@ -80,6 +82,7 @@ impl GuardPosition {
     }
 }
 
+#[derive(Clone)]
 struct ObstacleHashMap {
     rows: HashMap<u8, Vec<u8>>,
     cols: HashMap<u8, Vec<u8>>,
@@ -148,7 +151,7 @@ struct Path(u8, u8);
 struct MovementRecords {
     rows: HashMap<u8, Vec<Path>>,
     cols: HashMap<u8, Vec<Path>>,
-    looped: bool
+    looped: bool,
 }
 
 fn get_movement_records(
@@ -245,7 +248,7 @@ fn simplify_vec(map: &mut HashMap<u8, Vec<Path>>) {
                 i += 1;
             }
         }
-     }
+    }
 }
 
 fn simplify_visited(movement_records: &mut MovementRecords) {
@@ -292,9 +295,13 @@ fn process_first(movement_records: &MovementRecords) -> usize {
     visited - crossed
 }
 
-fn process_second(map_size: &MapSize, movement_records: &MovementRecords, obstacles: &mut ObstacleHashMap, guard_original: &GuardPosition) -> usize {
+fn process_second(
+    map_size: &MapSize,
+    movement_records: &MovementRecords,
+    obstacles: &mut ObstacleHashMap,
+    guard_original: &GuardPosition,
+) -> usize {
     let mut visited: HashSet<(u8, u8)> = HashSet::new();
-    let mut can_cause_loop: usize = 0;
     for (&row_i, paths_row) in movement_records.rows.iter() {
         for path_row in paths_row {
             let lower_col = path_row.0.min(path_row.1);
@@ -313,15 +320,32 @@ fn process_second(map_size: &MapSize, movement_records: &MovementRecords, obstac
             }
         }
     }
-    for (row, col) in visited {
-        obstacles.add_obstacle(row, col);
-        let mut guard = guard_original.clone();
-        if get_movement_records(map_size, obstacles, &mut guard).looped {
-            can_cause_loop += 1;
+    let count = Arc::new(AtomicUsize::new(0));
+    let thread_count = 8;
+    let per_thread = visited.len() / thread_count;
+    thread::scope(|scope| {
+        let calc = |thread| {
+            let count = Arc::clone(&count);
+            for (row, col) in (&visited)
+                .iter()
+                .skip(per_thread as usize * thread as usize)
+                .take(per_thread as usize)
+                .take(per_thread)
+            {
+                let mut obstacles = obstacles.clone();
+                obstacles.add_obstacle(*row, *col);
+                let mut guard = guard_original.clone();
+                if get_movement_records(&map_size, &obstacles, &mut guard).looped {
+                    count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+                obstacles.remove_obstacle(*row, *col);
+            }
+        };
+        for i in 0..=thread_count {
+            scope.spawn(move || calc(i));
         }
-        obstacles.remove_obstacle(row, col);
-    }
-    can_cause_loop
+    });
+    count.load(std::sync::atomic::Ordering::Acquire)
 }
 
 pub fn run(mut args: impl Iterator<Item = String>) {
@@ -343,8 +367,16 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     println!("Distinct visit: {}", distinct_visit);
 
     let mut obstacles = obstacles;
-    let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
-    println!("Can cause loop: {}", can_cause_loop);
+    let can_cause_loop = process_second(
+        &map_size,
+        &movement_records,
+        &mut obstacles,
+        &guard_original,
+    );
+    println!(
+        "Positions for new obstacle that can cause loop: {}",
+        can_cause_loop
+    );
 }
 
 #[cfg(test)]
@@ -363,7 +395,12 @@ mod tests {
         let distinct_visit = process_first(&movement_records);
         assert_eq!(distinct_visit, 41);
         let mut obstacles = obstacles;
-        let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
+        let can_cause_loop = process_second(
+            &map_size,
+            &movement_records,
+            &mut obstacles,
+            &guard_original,
+        );
         assert_eq!(can_cause_loop, 6);
     }
 
@@ -379,7 +416,12 @@ mod tests {
         let distinct_visit = process_first(&movement_records);
         assert_eq!(distinct_visit, 5404);
         let mut obstacles = obstacles;
-        let can_cause_loop = process_second(&map_size, &movement_records, &mut obstacles, &guard_original);
+        let can_cause_loop = process_second(
+            &map_size,
+            &movement_records,
+            &mut obstacles,
+            &guard_original,
+        );
         assert_eq!(can_cause_loop, 1984);
     }
 }
