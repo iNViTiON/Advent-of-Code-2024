@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -39,6 +45,7 @@ version = "0.1.0"
 dependencies = [
  "rayon",
  "regex-lite",
+ "utf8-chars",
 ]
 
 [[package]]
@@ -66,3 +73,12 @@ name = "regex-lite"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53a49587ad06b26609c52e423de037e7f57f20d53535d66e08c695f347df952a"
+
+[[package]]
+name = "utf8-chars"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f598f797138b219a4560b4e9c53c255e872e267c9e3fdcc75aa59a2a90953bcd"
+dependencies = [
+ "arrayvec",
+]
