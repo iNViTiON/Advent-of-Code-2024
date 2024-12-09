@@ -4,6 +4,7 @@ mod day3;
 mod day4;
 mod day5;
 mod day6;
+mod day7;
 
 use invition_aoc2024::Config;
 
@@ -23,6 +24,7 @@ fn main() {
         4 => day4::run(args),
         5 => day5::run(args),
         6 => day6::run(args),
+        7 => day7::run(args),
         _ => eprintln!("Day not implemented"),
     }
 }
