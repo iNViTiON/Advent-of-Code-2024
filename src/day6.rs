@@ -133,13 +133,14 @@ impl ObstacleHashMap {
     }
 }
 
-struct MapSize {
-    width: u8,
-    height: u8,
+#[derive(Debug)]
+pub struct MapSize {
+    pub width: u8,
+    pub height: u8,
 }
 
 impl MapSize {
-    fn from_maps(raw_dataset: &str) -> MapSize {
+    pub fn from_maps(raw_dataset: &str) -> MapSize {
         let width = raw_dataset.lines().next().unwrap().len() as u8;
         let height = raw_dataset.lines().count() as u8;
         MapSize { width, height }
