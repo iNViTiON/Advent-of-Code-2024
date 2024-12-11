@@ -25,10 +25,10 @@ fn read_input_file(file_path: &str) -> String {
     })
 }
 
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct Position {
-    row: u8,
-    col: u8,
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
+pub struct Position {
+    pub row: u8,
+    pub col: u8,
 }
 
 type AntennaMap = HashMap<char, Vec<Position>>;
