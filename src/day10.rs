@@ -27,7 +27,7 @@ enum Direction {
 }
 
 struct TrailPossibleFromSource {
-    source: HashSet<Position>,
+    source: HashMap<Position, u8>,
     direction: Direction,
     current_height: u8,
     current_position: Position,
@@ -92,6 +92,36 @@ fn step(
         })
 }
 
+fn steps(
+    maps: &Vec<Vec<u8>>,
+    trail_paths: &HashMap<Position, TrailPossibleFromSource>,
+) -> HashMap<Position, TrailPossibleFromSource> {
+    trail_paths
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, (_, trail_path)| {
+            step(maps, trail_path)
+                .into_iter()
+                .for_each(|(position, trail_path)| {
+                    acc.entry(position)
+                        .and_modify(|exist_trail_path| {
+                            trail_path.source.iter().for_each(
+                                |(source_position_in_new_step, path_count)| {
+                                    exist_trail_path
+                                        .source
+                                        .entry(*source_position_in_new_step)
+                                        .and_modify(|exist_path_count| {
+                                            *exist_path_count += path_count;
+                                        })
+                                        .or_insert(*path_count);
+                                },
+                            )
+                        })
+                        .or_insert(trail_path);
+                });
+            acc
+        })
+}
+
 fn read_input_file(file_path: &str) -> String {
     fs::read_to_string(file_path).unwrap_or_else(|err| {
         eprintln!("Problem reading file: {}", err);
@@ -118,7 +148,7 @@ fn get_positions_by_height(maps: &Vec<Vec<u8>>, target_height: u8) -> HashSet<Po
         })
 }
 
-fn process_first(raw_dataset: &str) -> usize {
+fn process(raw_dataset: &str) -> HashMap<Position, HashMap<Position, u8>> {
     let maps: Vec<Vec<u8>> = raw_dataset
         .lines()
         .map(|line| {
@@ -129,100 +159,100 @@ fn process_first(raw_dataset: &str) -> usize {
         .collect();
     let trailheads = get_positions_by_height(&maps, 0);
     let trail_peaks = get_positions_by_height(&maps, 9);
-    let mut head_paths: HashMap<Position, TrailPossibleFromSource> =
-        trailheads
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, trailhead| {
-                acc.entry(trailhead)
-                    .and_modify(|trail_path| {
-                        trail_path.source.insert(trailhead);
-                    })
-                    .or_insert_with(|| {
-                        let mut source = HashSet::new();
-                        source.insert(trailhead);
-                        TrailPossibleFromSource {
-                            source,
-                            direction: Direction::Up,
-                            current_height: 0,
-                            current_position: trailhead,
-                        }
-                    });
-                acc
-            });
-    let mut peak_paths: HashMap<Position, TrailPossibleFromSource> =
-        trail_peaks
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, trailhead| {
-                acc.entry(trailhead)
-                    .and_modify(|trail_path| {
-                        trail_path.source.insert(trailhead);
-                    })
-                    .or_insert_with(|| {
-                        let mut source = HashSet::new();
-                        source.insert(trailhead);
-                        TrailPossibleFromSource {
-                            source,
-                            direction: Direction::Down,
-                            current_height: 9,
-                            current_position: trailhead,
-                        }
-                    });
-                acc
-            });
-    for _ in 0..5 {
-        head_paths = head_paths
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, (_, trail_path)| {
-                step(&maps, &trail_path)
-                    .into_iter()
-                    .for_each(|(position, trail_path)| {
-                        acc.entry(position)
-                            .and_modify(|exist_trail_path| {
-                                exist_trail_path.source.extend(&trail_path.source)
-                            })
-                            .or_insert(trail_path);
-                    });
-                acc
-            });
-    }
+    let mut head_paths: HashMap<Position, TrailPossibleFromSource> = trailheads
+        .into_iter()
+        .map(|position| {
+            let mut source = HashMap::new();
+            source.insert(position, 1);
+            (
+                position,
+                TrailPossibleFromSource {
+                    source,
+                    direction: Direction::Up,
+                    current_height: 0,
+                    current_position: position,
+                },
+            )
+        })
+        .collect();
+    let mut peak_paths: HashMap<Position, TrailPossibleFromSource> = trail_peaks
+        .into_iter()
+        .map(|position| {
+            let mut source = HashMap::new();
+            source.insert(position, 1);
+            (
+                position,
+                TrailPossibleFromSource {
+                    source,
+                    direction: Direction::Down,
+                    current_height: 9,
+                    current_position: position,
+                },
+            )
+        })
+        .collect();
     for _ in 0..4 {
-        peak_paths = peak_paths
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, (_, trail_path)| {
-                step(&maps, &trail_path)
-                    .into_iter()
-                    .for_each(|(position, trail_path)| {
-                        acc.entry(position)
-                            .and_modify(|exist_trail_path| {
-                                exist_trail_path.source.extend(&trail_path.source)
-                            })
-                            .or_insert(trail_path);
-                    });
-                acc
-            });
+        head_paths = steps(&maps, &head_paths);
+        peak_paths = steps(&maps, &peak_paths);
     }
+    head_paths = steps(&maps, &head_paths);
 
-    let relations: HashMap<Position, HashSet<Position>> =
-        head_paths
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, (position, headtrail_path)| {
-                let peak_positions = peak_paths
-                    .get(&position)
-                    .and_then(|peak_trail_path| Some(&peak_trail_path.source));
-                if let Some(peak_positions) = peak_positions {
-                    headtrail_path
-                        .source
-                        .into_iter()
-                        .for_each(|headtrail_position| {
-                            acc.entry(headtrail_position)
-                                .and_modify(|exist_peak_positions| {
-                                    exist_peak_positions.extend(peak_positions);
-                                }).or_insert(peak_positions.clone());
+    let relations: HashMap<Position, HashMap<Position, u8>> = head_paths
+        .into_iter()
+        .filter(|(position, _)| peak_paths.contains_key(position))
+        .fold(HashMap::new(), |mut acc, (position, headtrail_path)| {
+            let peak_positions = peak_paths
+                .get(&position)
+                .and_then(|peak_trail_path| Some(&peak_trail_path.source))
+                // we already filter out the head_paths that are not in peak_paths
+                .unwrap();
+            headtrail_path.source.into_iter().for_each(
+                |(headtrail_position, path_count_from_head)| {
+                    acc.entry(headtrail_position)
+                        .and_modify(|exist_peak_positions| {
+                            peak_positions.iter().for_each(
+                                |(peak_position, path_to_peak_count)| {
+                                    exist_peak_positions
+                                        .entry(*peak_position)
+                                        .and_modify(|exist_path_count| {
+                                            *exist_path_count +=
+                                                path_to_peak_count * path_count_from_head;
+                                        })
+                                        .or_insert(*path_to_peak_count * path_count_from_head);
+                                },
+                            );
+                        })
+                        .or_insert({
+                            let mut peak_with_score = HashMap::new();
+                            peak_positions.iter().for_each(
+                                |(peak_position, path_to_peak_count)| {
+                                    peak_with_score.insert(
+                                        *peak_position,
+                                        path_to_peak_count * path_count_from_head,
+                                    );
+                                },
+                            );
+                            peak_with_score
                         });
-                }
-                acc
-            });
-    relations.into_iter().map(|(_, peak_positions)| peak_positions.len()).sum()
+                },
+            );
+            acc
+        });
+    relations
+}
+
+fn process_first(relations: &HashMap<Position, HashMap<Position, u8>>) -> usize {
+    relations
+        .iter()
+        .map(|(_, peak_positions)| peak_positions.len())
+        .sum()
+}
+
+fn process_second(relations: &HashMap<Position, HashMap<Position, u8>>) -> usize {
+    relations
+        .iter()
+        .map(|(_, peak_positions)| peak_positions.values().sum::<u8>() as usize)
+        .sum()
 }
 
 pub fn run(mut args: impl Iterator<Item = String>) {
@@ -234,6 +264,32 @@ pub fn run(mut args: impl Iterator<Item = String>) {
 
     let raw_dataset = read_input_file(&config.in_file);
 
-    let scores_sum = process_first(&raw_dataset);
+    let relations = process(&raw_dataset);
+
+    let scores_sum = process_first(&relations);
     println!("Sum of the scores of all trailheads: {}", scores_sum);
+    
+    let total_paths = process_second(&relations);
+    println!("Total paths from trailheads to trailpeaks: {}", total_paths);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_ex() {
+        let raw_dataset = read_input_file("input/day10_ex.txt");
+        let relations = process(&raw_dataset);
+        assert_eq!(process_first(&relations), 36);
+        assert_eq!(process_second(&relations), 81);
+    }
+
+    #[test]
+    fn test_process() {
+        let raw_dataset = read_input_file("input/day10.txt");
+        let relations = process(&raw_dataset);
+        assert_eq!(process_first(&relations), 489);
+        assert_eq!(process_second(&relations), 1086);
+    }
 }
