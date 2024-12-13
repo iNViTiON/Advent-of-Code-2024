@@ -35,14 +35,6 @@ fn blink(stone: usize) -> Vec<usize> {
     return vec![stone * 2024];
 }
 
-fn process_first(stones: &Vec<usize>) -> usize {
-    let mut stones = stones.clone();
-    for _ in 0..25 {
-        stones = stones.into_iter().flat_map(blink).collect();
-    }
-    stones.len()
-}
-
 fn blink_dfs(stone: &usize, level: u8, dict: &mut HashMap<(usize, u8), usize>) -> usize {
     if level == 0 {
         1
@@ -58,11 +50,10 @@ fn blink_dfs(stone: &usize, level: u8, dict: &mut HashMap<(usize, u8), usize>) -
     }
 }
 
-fn process_second(stones: &Vec<usize>) -> usize {
-    let mut dict: HashMap<(usize, u8), usize> = HashMap::new();
+fn process(stones: &Vec<usize>, mut dict: &mut HashMap<(usize, u8), usize>, blink_count: u8) -> usize {
     stones
         .into_iter()
-        .map(|stone| blink_dfs(&stone, 75, &mut dict))
+        .map(|stone| blink_dfs(&stone, blink_count, &mut dict))
         .sum()
 }
 
@@ -83,11 +74,12 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     let raw_dataset = read_input_file(&config.in_file);
 
     let stones = to_stones(&raw_dataset);
+    let mut dict: HashMap<(usize, u8), usize> = HashMap::new();
 
-    let stone_count = process_first(&stones);
+    let stone_count = process(&stones, &mut dict, 25);
     println!("25 blinks {} stones", stone_count);
 
-    let stone_count = process_second(&stones);
+    let stone_count = process(&stones, &mut dict, 75);
     println!("75 blinks {} stones", stone_count);
 }
 
@@ -98,14 +90,16 @@ mod tests {
     #[test]
     fn test_process_ex() {
         let stones = to_stones(&read_input_file("input/day11_ex.txt"));
-        assert_eq!(process_first(&stones), 55312);
-        assert_eq!(process_second(&stones), 65601038650482);
+        let mut dict: HashMap<(usize, u8), usize> = HashMap::new();
+        assert_eq!(process(&stones, &mut dict, 25), 55312);
+        assert_eq!(process(&stones, &mut dict, 75), 65601038650482);
     }
 
     #[test]
     fn test_process() {
         let stones = to_stones(&read_input_file("input/day11.txt"));
-        assert_eq!(process_first(&stones), 198089);
-        assert_eq!(process_second(&stones), 236302670835517);
+        let mut dict: HashMap<(usize, u8), usize> = HashMap::new();
+        assert_eq!(process(&stones, &mut dict, 25), 198089);
+        assert_eq!(process(&stones, &mut dict, 75), 236302670835517);
     }
 }
