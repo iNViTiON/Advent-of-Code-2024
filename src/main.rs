@@ -11,6 +11,7 @@ mod day10;
 mod day11;
 mod day12;
 mod day13;
+mod day14;
 
 use invition_aoc2024::Config;
 
@@ -37,6 +38,7 @@ fn main() {
         11 => day11::run(args),
         12 => day12::run(args),
         13 => day13::run(args),
+        14 => day14::run(args),
         _ => eprintln!("Day not implemented"),
     }
 }
