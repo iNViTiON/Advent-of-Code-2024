@@ -77,6 +77,7 @@ struct Robot {
     position: Position,
     facing: Direction,
     score: usize,
+    visited: HashSet<Position>,
 }
 
 impl Robot {
@@ -162,6 +163,7 @@ impl Robot {
     fn go_forward(&mut self) {
         if let Ok(next) = self.get_next_with_direction(self.facing) {
             self.position = next;
+            self.visited.insert(next);
             self.score += 1;
         }
     }
@@ -179,14 +181,18 @@ impl Robot {
     }
 }
 
-fn process_first(map: &Map) -> usize {
-    let mut robots = vec![Robot {
+fn process(map: &Map) -> (usize, usize) {
+    let mut initial_robot = Robot {
         position: map.start,
         facing: Direction::East,
         score: 0,
-    }];
+        visited: HashSet::new(),
+    };
+    initial_robot.visited.insert(map.start);
+    let mut robots = vec![initial_robot];
     let mut least_score = usize::MAX;
     let mut visited: HashMap<(Position, Direction), usize> = HashMap::new();
+    let mut best_part_visited: HashSet<Position> = HashSet::new();
     loop {
         let least_score_robot_i = robots
             .iter()
@@ -196,49 +202,35 @@ fn process_first(map: &Map) -> usize {
             .0;
         let robot = robots.swap_remove(least_score_robot_i);
         if least_score < robot.score {
-            return least_score;
+            return (least_score, best_part_visited.len());
         }
-        if robot.can_forward(map) {
-            let mut robot = robot.clone();
-            robot.go_forward();
-            if robot.position == map.end {
+        let mut check = |robot: Robot| {
+            if robot.position == map.end && robot.score <= least_score {
+                best_part_visited.extend(robot.visited.iter());
                 least_score = robot.score;
             }
-            match visited.get(&(robot.position, robot.facing)).map(|score| &robot.score < score) {
+            match visited.get(&(robot.position, robot.facing)).map(|score| &robot.score <= score) {
                 Some(false) => (),
                 _ => {
                     visited.insert((robot.position, robot.facing), robot.score);
                     robots.push(robot);
                 }
             }
+        };
+        if robot.can_forward(map) {
+            let mut robot = robot.clone();
+            robot.go_forward();
+            check(robot);
         }
         if robot.can_left(map) {
             let mut robot = robot.clone();
             robot.go_left();
-            if robot.position == map.end {
-                least_score = robot.score;
-            }
-            match visited.get(&(robot.position, robot.facing)).map(|score| &robot.score < score) {
-                Some(false) => (),
-                _ => {
-                    visited.insert((robot.position, robot.facing), robot.score);
-                    robots.push(robot);
-                }
-            }
+            check(robot);
         }
         if robot.can_right(map) {
             let mut robot = robot.clone();
             robot.go_right();
-            if robot.position == map.end {
-                least_score = robot.score;
-            }
-            match visited.get(&(robot.position, robot.facing)).map(|score| &robot.score < score) {
-                Some(false) => (),
-                _ => {
-                    visited.insert((robot.position, robot.facing), robot.score);
-                    robots.push(robot);
-                }
-            }
+            check(robot);
         }
     }
 }
@@ -253,6 +245,7 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     let raw_dataset = read_input_file(&config.in_file);
     let map = Map::new(&raw_dataset);
 
-    let result = process_first(&map);
-    println!("Result: {}", result);
+    let (lowest_possible_score, tiles_passed_by_best_path) = process(&map);
+    println!("The lowest score a Reindeer could possibly get: {}", lowest_possible_score);
+    println!("Tiles are part of at least one of the best paths through the maze: {}", tiles_passed_by_best_path);
 }
