@@ -25,7 +25,7 @@ fn read_input_file(file_path: &str) -> String {
     })
 }
 
-#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Position {
     pub row: u8,
     pub col: u8,
