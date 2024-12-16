@@ -249,3 +249,35 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     println!("The lowest score a Reindeer could possibly get: {}", lowest_possible_score);
     println!("Tiles are part of at least one of the best paths through the maze: {}", tiles_passed_by_best_path);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_ex() {
+        let raw_dataset = read_input_file("input/day16_ex.txt");
+        let map = Map::new(&raw_dataset);
+        let (lowest_possible_score, tiles_passed_by_best_path) = process(&map);
+        assert_eq!(lowest_possible_score, 7036);
+        assert_eq!(tiles_passed_by_best_path, 45);
+    }
+
+    #[test]
+    fn test_process_ex2() {
+        let raw_dataset = read_input_file("input/day16_ex2.txt");
+        let map = Map::new(&raw_dataset);
+        let (lowest_possible_score, tiles_passed_by_best_path) = process(&map);
+        assert_eq!(lowest_possible_score, 11048);
+        assert_eq!(tiles_passed_by_best_path, 64);
+    }
+
+    #[test]
+    fn test_process() {
+        let raw_dataset = read_input_file("input/day16.txt");
+        let map = Map::new(&raw_dataset);
+        let (lowest_possible_score, tiles_passed_by_best_path) = process(&map);
+        assert_eq!(lowest_possible_score, 79404);
+        assert_eq!(tiles_passed_by_best_path, 451);
+    }
+}
