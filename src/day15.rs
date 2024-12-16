@@ -310,3 +310,56 @@ pub fn run(mut args: impl Iterator<Item = String>) {
         box_coor_sum_double_wide
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_ex_small() {
+        let raw_dataset = read_input_file("input/day15_ex_small.txt");
+        let mut raw_dataset_split = raw_dataset.split("\n\n");
+        let raw_map_dataset = raw_dataset_split.next().unwrap();
+        let instructions = raw_dataset_split.next().unwrap().replace("\n", "");
+
+        let mut map = Map::new(raw_map_dataset);
+        let box_coor_sum = process_first(&mut map, &instructions);
+        assert_eq!(box_coor_sum, 2028);
+
+        let mut map_double_wide = MapDoubleWide::new(raw_map_dataset);
+        let box_coor_sum_double_wide = process_second(&mut map_double_wide, &instructions);
+        assert_eq!(box_coor_sum_double_wide, 1751);
+    }
+
+    #[test]
+    fn test_process_ex() {
+        let raw_dataset = read_input_file("input/day15_ex.txt");
+        let mut raw_dataset_split = raw_dataset.split("\n\n");
+        let raw_map_dataset = raw_dataset_split.next().unwrap();
+        let instructions = raw_dataset_split.next().unwrap().replace("\n", "");
+
+        let mut map = Map::new(raw_map_dataset);
+        let box_coor_sum = process_first(&mut map, &instructions);
+        assert_eq!(box_coor_sum, 10092);
+
+        let mut map_double_wide = MapDoubleWide::new(raw_map_dataset);
+        let box_coor_sum_double_wide = process_second(&mut map_double_wide, &instructions);
+        assert_eq!(box_coor_sum_double_wide, 9021);
+    }
+
+    #[test]
+    fn test_process() {
+        let raw_dataset = read_input_file("input/day15.txt");
+        let mut raw_dataset_split = raw_dataset.split("\n\n");
+        let raw_map_dataset = raw_dataset_split.next().unwrap();
+        let instructions = raw_dataset_split.next().unwrap().replace("\n", "");
+
+        let mut map = Map::new(raw_map_dataset);
+        let box_coor_sum = process_first(&mut map, &instructions);
+        assert_eq!(box_coor_sum, 1563092);
+
+        let mut map_double_wide = MapDoubleWide::new(raw_map_dataset);
+        let box_coor_sum_double_wide = process_second(&mut map_double_wide, &instructions);
+        assert_eq!(box_coor_sum_double_wide, 1582688);
+    }
+}
