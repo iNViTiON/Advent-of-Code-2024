@@ -1,4 +1,9 @@
-use std::{fs, num::ParseIntError};
+use std::{
+    fs,
+    num::ParseIntError,
+    sync::{atomic::AtomicU32, Arc},
+    thread,
+};
 
 struct Config {
     in_file: String,
@@ -27,7 +32,7 @@ enum OperandError {
     ComboOutOfRange,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 enum Operand {
     Literal(u32),
     Combo(u8),
@@ -63,6 +68,7 @@ impl Operand {
     }
 }
 
+#[derive(Clone)]
 enum Instruction {
     ADV(Operand),
     BXL(Operand),
@@ -74,11 +80,12 @@ enum Instruction {
     CDV(Operand),
 }
 
+#[derive(Clone)]
 struct ChronospatialComputer {
     registers: [u32; 3],
     instruction_pointer: usize,
     instructions: Vec<Instruction>,
-    output: Vec<u32>,
+    output: String,
 }
 
 impl ChronospatialComputer {
@@ -93,7 +100,7 @@ impl ChronospatialComputer {
             registers,
             instruction_pointer: 0,
             instructions,
-            output: Vec::new(),
+            output: String::from(""),
         }
     }
 
@@ -147,111 +154,117 @@ impl ChronospatialComputer {
         }
     }
 
+    fn run_check(&mut self, target_output: &str) -> bool {
+        loop {
+            if self.instruction_pointer >= self.instructions.len() {
+                break;
+            };
+            self.run_step();
+            if self.output.len() > 0 && !target_output.starts_with(&self.output[1..]) {
+                return false;
+            }
+        }
+        &self.output[1..] == target_output
+    }
+
+    fn run_step(&mut self) {
+        let instruction = self.instructions.get(self.instruction_pointer);
+        if instruction.is_none() {
+            return;
+        }
+        let instruction = instruction.unwrap();
+        match instruction {
+            Instruction::ADV(operand) => {
+                self.registers[0] /= 2u32.pow(self.get_operant_value(operand));
+            }
+            Instruction::BXL(operand) => {
+                self.registers[1] ^= self.get_operant_value(operand);
+            }
+            Instruction::BST(operand) => {
+                self.registers[1] = self.get_operant_value(operand) & 0b111;
+            }
+            Instruction::JNZ(operand) => {
+                if self.registers[0] != 0 {
+                    self.instruction_pointer = self.get_operant_value(operand) as usize;
+                    return;
+                }
+            }
+            Instruction::BXC => {
+                self.registers[1] ^= self.registers[2];
+            }
+            Instruction::OUT(operand) => {
+                // self.output += &(self.get_operant_value(operand) & 0b111).to_string();
+                self.output += &format!(",{}", self.get_operant_value(operand) & 0b111);
+            }
+            Instruction::BDV(operand) => {
+                self.registers[1] = self.registers[0] / 2u32.pow(self.get_operant_value(operand));
+            }
+            Instruction::CDV(operand) => {
+                self.registers[2] = self.registers[0] / 2u32.pow(self.get_operant_value(operand));
+            }
+        }
+        self.instruction_pointer += 1;
+    }
+
     fn run(&mut self) {
         loop {
-            let instruction = self.instructions.get(self.instruction_pointer);
-            if instruction.is_none() {
+            if self.instruction_pointer >= self.instructions.len() {
                 break;
-            }
-            let instruction = instruction.unwrap();
-            match instruction {
-                Instruction::ADV(operand) => {
-                    println!(
-                        "ADV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[0] /= 2u32.pow(self.get_operant_value(operand));
-                }
-                Instruction::BXL(operand) => {
-                    println!(
-                        "BXL with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[1] ^= self.get_operant_value(operand);
-                }
-                Instruction::BST(operand) => {
-                    println!(
-                        "BST with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[1] = self.get_operant_value(operand) & 0b111;
-                }
-                Instruction::JNZ(operand) => {
-                    println!(
-                        "JNZ with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    if self.registers[0] != 0 {
-                        println!(
-                            "Jumping from {} to {}",
-                            self.instruction_pointer,
-                            self.get_operant_value(operand)
-                        );
-                        println!(
-                            "{:?} {:b} {:b} {:b}",
-                            self.registers, self.registers[0], self.registers[1], self.registers[2]
-                        );
-                        self.instruction_pointer = self.get_operant_value(operand) as usize;
-                        continue;
-                    }
-                }
-                Instruction::BXC => {
-                    println!("BXC");
-                    self.registers[1] ^= self.registers[2];
-                }
-                Instruction::OUT(operand) => {
-                    println!(
-                        "OUT with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.output.push(self.get_operant_value(operand) & 0b111);
-                }
-                Instruction::BDV(operand) => {
-                    println!(
-                        "BDV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[1] =
-                        self.registers[0] / 2u32.pow(self.get_operant_value(operand));
-                }
-                Instruction::CDV(operand) => {
-                    println!(
-                        "CDV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[2] =
-                        self.registers[0] / 2u32.pow(self.get_operant_value(operand));
-                }
-            }
-            self.instruction_pointer += 1;
-            println!(
-                "{:?} {:b} {:b} {:b}",
-                self.registers, self.registers[0], self.registers[1], self.registers[2]
-            );
+            };
+            self.run_step();
         }
     }
 
-    fn get_output(&self) -> String {
-        self.output
-            .iter()
-            .map(|n| n.to_string())
-            .collect::<Vec<String>>()
-            .join(",")
+    fn get_output(&self) -> &str {
+        &self.output[1..]
     }
+}
+
+fn process_second(computer: ChronospatialComputer, original_raw_instruction: &str) -> u32 {
+    // let mut valid_a = 0u32;
+    // [0u32..7].par_iter().take_any_while(|_| valid_a == 0).for_each(|a| {
+    //     let mut computer = computer.clone();
+    //     computer.registers[0] = *a;
+    //     computer.run();
+    //     let output = computer.get_output();
+    //     if output == original_raw_instruction {
+    //         valid_a = *a;
+    //     }
+    // });
+    // valid_a
+    let valid_a = Arc::new(AtomicU32::new(u32::MAX));
+    let check_a_index = Arc::new(AtomicU32::new(0));
+    let thread_count = thread::available_parallelism().unwrap().get();
+
+    thread::scope(|scope| {
+        for _ in 0..thread_count {
+            scope.spawn(|| {
+                let mut computer = computer.clone();
+                while valid_a.load(std::sync::atomic::Ordering::Relaxed) == u32::MAX {
+                    computer.output.clear();
+                    computer.instruction_pointer = 0;
+                    let check_a_index = Arc::clone(&check_a_index);
+                    let check_a = check_a_index.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    computer.registers[0] = check_a;
+                    if check_a % 10000000 == 0 {
+                        println!("Checking a: {check_a}");
+                    }
+                    let same = computer.run_check(original_raw_instruction);
+                    // let output = computer.get_output();
+                    // if output == original_raw_instruction {
+                    // if check_a == 117440 {
+                    //     println!("Checking a: {check_a}");
+                    //     println!("Output: {}", computer.output);
+                    // }
+                    if same {
+                        let valid_a = Arc::clone(&valid_a);
+                        valid_a.fetch_min(check_a, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            });
+        }
+    });
+    valid_a.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 pub fn run(mut args: impl Iterator<Item = String>) {
@@ -263,7 +276,11 @@ pub fn run(mut args: impl Iterator<Item = String>) {
 
     let raw_dataset = read_input_file(&config.in_file);
     let mut computer = ChronospatialComputer::new(&raw_dataset);
+    let original_computer = computer.clone();
     computer.run();
     let first_output = computer.get_output();
     println!("First part output: {first_output}");
+    let original_raw_instruction = &raw_dataset.lines().skip(4).next().unwrap()[9..];
+    let recover_register_a = process_second(original_computer, original_raw_instruction);
+    println!("Second part output: {recover_register_a}");
 }
