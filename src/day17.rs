@@ -1,4 +1,4 @@
-use std::{fs, num::ParseIntError};
+use std::fs;
 
 struct Config {
     in_file: String,
@@ -23,34 +23,17 @@ fn read_input_file(file_path: &str) -> String {
 }
 
 enum OperandError {
-    ParseError(ParseIntError),
     ComboOutOfRange,
 }
 
 #[derive(Debug)]
 enum Operand {
-    Literal(u32),
+    Literal(u64),
     Combo(u8),
 }
 
 impl Operand {
-    fn literal_from_str(operand_str: &str) -> Result<Operand, OperandError> {
-        operand_str
-            .parse()
-            .map(Operand::Literal)
-            .map_err(OperandError::ParseError)
-    }
-
-    fn combo_from_str(operand_str: &str) -> Result<Operand, OperandError> {
-        let number = operand_str.parse().map_err(OperandError::ParseError)?;
-        if number > 7 {
-            Err(OperandError::ComboOutOfRange)
-        } else {
-            Ok(Operand::Combo(number))
-        }
-    }
-
-    fn literal_from(operand: u32) -> Result<Operand, OperandError> {
+    fn literal_from(operand: u64) -> Result<Operand, OperandError> {
         Ok(Operand::Literal(operand))
     }
 
@@ -75,10 +58,10 @@ enum Instruction {
 }
 
 struct ChronospatialComputer {
-    registers: [u32; 3],
+    registers: [u64; 3],
     instruction_pointer: usize,
     instructions: Vec<Instruction>,
-    output: Vec<u32>,
+    output: Vec<u64>,
 }
 
 impl ChronospatialComputer {
@@ -108,14 +91,13 @@ impl ChronospatialComputer {
                 break;
             }
             let opcode: u8 = opcode.unwrap().parse().unwrap();
-            let operand: u32 = operand.unwrap().parse().unwrap();
+            let operand: u64 = operand.unwrap().parse().unwrap();
             let operand = if opcode_combo.contains(&opcode) {
                 Operand::combo_from(operand as u8)
             } else {
                 Operand::literal_from(operand)
             };
             let instruction = match operand {
-                Err(OperandError::ParseError(_)) => panic!("Invalid operand"),
                 Err(OperandError::ComboOutOfRange) => panic!("Invalid operand"),
                 Ok(operand) => match opcode {
                     0 => Instruction::ADV(operand),
@@ -134,17 +116,41 @@ impl ChronospatialComputer {
         instructions
     }
 
-    fn get_operant_value(&self, operand: &Operand) -> u32 {
+    fn get_operant_value(&self, operand: &Operand) -> u64 {
         match operand {
             Operand::Literal(v) => *v,
             Operand::Combo(v) => match v {
-                v if *v <= 3 => *v as u32,
+                v if *v <= 3 => *v as u64,
                 4 => self.registers[0],
                 5 => self.registers[1],
                 6 => self.registers[2],
                 _ => panic!("Should not happen"),
             },
         }
+    }
+
+    fn find_initial_register_a_from_output(output: &str) -> u64 {
+        let output_iter = output.split(',').map(|v| v.parse::<u64>().unwrap());
+        let k1 = output_iter.clone().skip(3).next().unwrap();
+        let k2 = output_iter.clone().skip(7).next().unwrap();
+        let get_out_b = |a: u64| -> u64 {
+            let b = a & 7 ^ k1;
+            let c = a >> b;
+            b ^ k2 ^ c & 7
+        };
+
+        output_iter
+            .rev()
+            .fold(vec![0], |acc, v| {
+                acc.into_iter()
+                    .map(|a| a << 3)
+                    .flat_map(|a| (0..=7).map(move |frag| a | frag))
+                    .filter(|a| get_out_b(*a) == v)
+                    .collect()
+            })
+            .into_iter()
+            .min()
+            .unwrap()
     }
 
     fn run(&mut self) {
@@ -156,92 +162,34 @@ impl ChronospatialComputer {
             let instruction = instruction.unwrap();
             match instruction {
                 Instruction::ADV(operand) => {
-                    println!(
-                        "ADV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[0] /= 2u32.pow(self.get_operant_value(operand));
+                    self.registers[0] >>= self.get_operant_value(operand);
                 }
                 Instruction::BXL(operand) => {
-                    println!(
-                        "BXL with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
                     self.registers[1] ^= self.get_operant_value(operand);
                 }
                 Instruction::BST(operand) => {
-                    println!(
-                        "BST with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
                     self.registers[1] = self.get_operant_value(operand) & 0b111;
                 }
                 Instruction::JNZ(operand) => {
-                    println!(
-                        "JNZ with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
                     if self.registers[0] != 0 {
-                        println!(
-                            "Jumping from {} to {}",
-                            self.instruction_pointer,
-                            self.get_operant_value(operand)
-                        );
-                        println!(
-                            "{:?} {:b} {:b} {:b}",
-                            self.registers, self.registers[0], self.registers[1], self.registers[2]
-                        );
                         self.instruction_pointer = self.get_operant_value(operand) as usize;
                         continue;
                     }
                 }
                 Instruction::BXC => {
-                    println!("BXC");
                     self.registers[1] ^= self.registers[2];
                 }
                 Instruction::OUT(operand) => {
-                    println!(
-                        "OUT with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
                     self.output.push(self.get_operant_value(operand) & 0b111);
                 }
                 Instruction::BDV(operand) => {
-                    println!(
-                        "BDV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[1] =
-                        self.registers[0] / 2u32.pow(self.get_operant_value(operand));
+                    self.registers[1] = self.registers[0] >> self.get_operant_value(operand);
                 }
                 Instruction::CDV(operand) => {
-                    println!(
-                        "CDV with {:?} (v:{} - {:b})",
-                        operand,
-                        self.get_operant_value(operand),
-                        self.get_operant_value(operand)
-                    );
-                    self.registers[2] =
-                        self.registers[0] / 2u32.pow(self.get_operant_value(operand));
+                    self.registers[2] = self.registers[0] >> self.get_operant_value(operand);
                 }
             }
             self.instruction_pointer += 1;
-            println!(
-                "{:?} {:b} {:b} {:b}",
-                self.registers, self.registers[0], self.registers[1], self.registers[2]
-            );
         }
     }
 
@@ -265,5 +213,39 @@ pub fn run(mut args: impl Iterator<Item = String>) {
     let mut computer = ChronospatialComputer::new(&raw_dataset);
     computer.run();
     let first_output = computer.get_output();
-    println!("First part output: {first_output}");
+    println!("Program output: {first_output}");
+
+    let original_instructions = raw_dataset.lines().skip(4).next().unwrap()[9..].to_string();
+    let init_register_a =
+        ChronospatialComputer::find_initial_register_a_from_output(&original_instructions);
+    println!("register A cause output as input: {}", init_register_a);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ex_first_part() {
+        let mut args = vec!["input/day17_ex.txt".to_string()].into_iter();
+        let config = Config::new(&mut args).unwrap();
+        let raw_dataset = read_input_file(&config.in_file);
+        let mut computer = ChronospatialComputer::new(&raw_dataset);
+        computer.run();
+        assert_eq!(computer.get_output(), "4,6,3,5,6,3,5,2,1,0");
+    }
+
+    #[test]
+    fn test_process() {
+        let mut args = vec!["input/day17.txt".to_string()].into_iter();
+        let config = Config::new(&mut args).unwrap();
+        let raw_dataset = read_input_file(&config.in_file);
+        let mut computer = ChronospatialComputer::new(&raw_dataset);
+        computer.run();
+        assert_eq!(computer.get_output(), "1,2,3,1,3,2,5,3,1");
+        let init_register_a = ChronospatialComputer::find_initial_register_a_from_output(
+            "2,4,1,5,7,5,1,6,0,3,4,3,5,5,3,0",
+        );
+        assert_eq!(init_register_a, 105706277661082);
+    }
 }
