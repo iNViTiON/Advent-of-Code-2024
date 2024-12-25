@@ -19,6 +19,12 @@ mod day18;
 
 use invition_aoc2024::Config;
 
+fn run_in_go() {
+    println!("This day is implemented in Go");
+    println!("To run it, you can use the following command:");
+    println!("`go run . {{day}} {{…params}}`");
+}
+
 fn main() {
     let mut args = std::env::args();
     let config = Config::new(&mut args).unwrap_or_else(|err| {
@@ -47,6 +53,7 @@ fn main() {
         16 => day16::run(args),
         17 => day17::run(args),
         18 => day18::run(args),
+        19 => run_in_go(),
         _ => eprintln!("Day not implemented"),
     }
 }

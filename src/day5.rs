@@ -25,7 +25,7 @@ struct Input<'a> {
 }
 
 impl<'a> Input<'a> {
-    fn new(raw_dataset: &'a str) -> Input {
+    fn new(raw_dataset: &'a str) -> Input<'a> {
         let mut parts = raw_dataset.split("\n\n");
         Input {
             ordering_rules: parts.next().unwrap(),

@@ -8,7 +8,10 @@
 		"ghcr.io/devcontainers/features/github-cli:1": {
 			"version": "latest"
 		},
-		"ghcr.io/joshuanianji/devcontainer-features/github-cli-persistence:1": {}
+		"ghcr.io/joshuanianji/devcontainer-features/github-cli-persistence:1": {},
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "latest"
+		}
 	}
 
 	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
